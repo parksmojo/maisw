@@ -3,50 +3,83 @@ type GameOptions = {
   bombCount?: number;
 };
 
-type BoardOptions = {
-  rows: number;
-  columns: number;
-  bombCount: number;
-};
-
 type SpaceValue = 'X' | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 type Space = SpaceValue | ' ' | 'F';
 
 export class Game {
-  private spaces: SpaceValue[][];
-  public board: Space[][];
+  private spaces: SpaceValue[][] = [];
+  public field: Space[][];
+  public moves: [number, number][] = [];
+
+  private rows: number;
+  private columns: number;
+  private bombCount: number;
 
   constructor({ size, bombCount: bombs }: GameOptions = {}) {
-    const rows = Math.max(typeof size === 'number' ? size : (size?.rows ?? 14), 3);
-    const columns = Math.max(typeof size === 'number' ? size : (size?.columns ?? 18), 3);
-    const bombCount = Math.max(bombs ?? Math.floor(rows * columns * 0.16), 1);
+    this.rows = Math.max(typeof size === 'number' ? size : (size?.rows ?? 14), 3);
+    this.columns = Math.max(typeof size === 'number' ? size : (size?.columns ?? 18), 3);
+    this.bombCount = Math.max(bombs ?? Math.floor(this.rows * this.columns * 0.16), 1);
 
-    this.board = Array.from({ length: rows }, () => Array(columns).fill(' '));
-    this.spaces = this.generateBoard({ rows, columns, bombCount });
+    this.field = Array.from({ length: this.rows }, () => Array(this.columns).fill(' '));
   }
 
-  private generateBoard({ rows, columns, bombCount }: BoardOptions): SpaceValue[][] {
-    const board: SpaceValue[][] = Array.from({ length: rows }, () => Array<SpaceValue>(columns).fill('0'));
+  private generateField(firstMove: [number, number]): SpaceValue[][] {
+    const field: SpaceValue[][] = Array.from({ length: this.rows }, () => Array<SpaceValue>(this.columns).fill('0'));
 
-    const totalSpaces = rows * columns;
-    const positions = Array.from({ length: totalSpaces }, (_, index) => index);
-    for (let i = positions.length - 1; i > 0; i--) {
+    const totalSpaces = this.rows * this.columns;
+    const firstIndex = firstMove[0] * this.columns + firstMove[1];
+    const protectedIndices = new Set<number>([firstIndex]);
+    const neighborOffsets = [-1, 0, 1];
+
+    const neighborCandidates: { index: number; priority: number }[] = [];
+    for (const rowOffset of neighborOffsets) {
+      for (const columnOffset of neighborOffsets) {
+        if (rowOffset === 0 && columnOffset === 0) continue;
+        const neighborRow = firstMove[0] + rowOffset;
+        const neighborColumn = firstMove[1] + columnOffset;
+        if (neighborRow < 0 || neighborRow >= this.rows || neighborColumn < 0 || neighborColumn >= this.columns) {
+          continue;
+        }
+        const index = neighborRow * this.columns + neighborColumn;
+        const priority = Math.abs(rowOffset) + Math.abs(columnOffset);
+        neighborCandidates.push({ index, priority });
+      }
+    }
+
+    neighborCandidates.sort((a, b) => a.priority - b.priority);
+
+    const maxProtected = totalSpaces - this.bombCount;
+    if (maxProtected <= 0) {
+      throw new Error('Bomb count exceeds available spaces for this board.');
+    }
+
+    const neighborsToProtect = Math.min(neighborCandidates.length, Math.max(0, maxProtected - 1));
+    for (let i = 0; i < neighborsToProtect; i++) {
+      protectedIndices.add(neighborCandidates[i].index);
+    }
+
+    const positions: number[] = [];
+    for (let index = 0; index < totalSpaces; index++) {
+      if (!protectedIndices.has(index)) {
+        positions.push(index);
+      }
+    }
+
+    for (let i = positions.length - 1; i >= positions.length - this.bombCount; i--) {
       const swapIndex = Math.floor(Math.random() * (i + 1));
       [positions[i], positions[swapIndex]] = [positions[swapIndex], positions[i]];
     }
-    const bombPositions = positions.slice(0, bombCount);
+    const bombPositions = positions.slice(positions.length - this.bombCount);
 
     for (const position of bombPositions) {
-      const row = Math.floor(position / columns);
-      const column = position % columns;
-      board[row][column] = 'X';
+      const row = Math.floor(position / this.columns);
+      const column = position % this.columns;
+      field[row][column] = 'X';
     }
 
-    const neighborOffsets = [-1, 0, 1];
-
     for (const position of bombPositions) {
-      const row = Math.floor(position / columns);
-      const column = position % columns;
+      const row = Math.floor(position / this.columns);
+      const column = position % this.columns;
 
       for (const rowOffset of neighborOffsets) {
         for (const columnOffset of neighborOffsets) {
@@ -55,32 +88,38 @@ export class Game {
           const neighborRow = row + rowOffset;
           const neighborColumn = column + columnOffset;
 
-          if (neighborRow < 0 || neighborRow >= rows || neighborColumn < 0 || neighborColumn >= columns) {
+          if (neighborRow < 0 || neighborRow >= this.rows || neighborColumn < 0 || neighborColumn >= this.columns) {
             continue;
           }
 
-          const value = board[neighborRow][neighborColumn];
+          const value = field[neighborRow][neighborColumn];
 
           if (value !== 'X') {
             const incremented = (Number(value) + 1).toString() as SpaceValue;
-            board[neighborRow][neighborColumn] = incremented;
+            field[neighborRow][neighborColumn] = incremented;
           }
         }
       }
     }
 
-    return board;
+    return field;
   }
 
-  public get boardString(): string {
+  public get fieldString(): string {
     let str = '';
-    for (const row of this.board) {
+    for (const row of this.field) {
       str += row.join(' ') + '\n';
     }
     return str;
   }
 
   public play(row: number, col: number): boolean | null {
+    this.moves.push([row, col]);
+
+    if (this.moves.length === 1) {
+      this.spaces = this.generateField([row, col]);
+    }
+
     if (this.spaces[row][col] === 'X') {
       return false;
     }
@@ -91,11 +130,11 @@ export class Game {
       const [row, col] = q.shift()!;
       const val = this.spaces[row][col];
 
-      if (this.board[row][col] === '0') {
+      if (this.field[row][col] === '0') {
         continue;
       }
-      this.board[row][col] = val;
-      if (this.board[row][col] !== '0') {
+      this.field[row][col] = val;
+      if (this.field[row][col] !== '0') {
         continue;
       }
 
@@ -104,7 +143,7 @@ export class Game {
           if (rowOffset === 0 && columnOffset === 0) continue;
           const nr = row + rowOffset;
           const nc = col + columnOffset;
-          if (nr < 0 || nc < 0 || nr >= this.board.length || nc >= this.board[0].length) {
+          if (nr < 0 || nc < 0 || nr >= this.field.length || nc >= this.field[0].length) {
             continue;
           }
           q.push([nr, nc]);
@@ -116,9 +155,9 @@ export class Game {
   }
 
   private checkWin(): boolean {
-    for (let row = 0; row < this.board.length; row++) {
-      for (let column = 0; column < this.board[0].length; column++) {
-        if (this.board[row][column] === ' ' && this.spaces[row][column] !== 'X') {
+    for (let row = 0; row < this.field.length; row++) {
+      for (let column = 0; column < this.field[0].length; column++) {
+        if (this.field[row][column] === ' ' && this.spaces[row][column] !== 'X') {
           return false;
         }
       }
