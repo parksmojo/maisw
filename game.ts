@@ -1,3 +1,5 @@
+import chalk from 'chalk';
+
 type GameOptions = {
   size?: { rows: number; columns: number } | number;
   bombCount?: number;
@@ -5,6 +7,21 @@ type GameOptions = {
 
 type SpaceValue = 'X' | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 type Space = SpaceValue | ' ' | 'F';
+
+const CELL_COLORIZERS: Partial<Record<Space, (value: string) => string>> = {
+  '0': chalk.hex('#505050'),
+  '1': chalk.blue,
+  '2': chalk.green,
+  '3': chalk.cyan,
+  '4': chalk.magenta,
+  '5': chalk.yellow,
+  '6': chalk.greenBright,
+  '7': chalk.cyanBright,
+  '8': chalk.white,
+  '9': chalk.whiteBright,
+  'X': chalk.red,
+  'F': chalk.hex('#FFA500'),
+};
 
 export class Game {
   private spaces: SpaceValue[][] = [];
@@ -106,11 +123,18 @@ export class Game {
   }
 
   public get fieldString(): string {
-    let str = '';
-    for (const row of this.field) {
-      str += row.join(' ') + '\n';
-    }
-    return str;
+    return (
+      this.field
+        .map(row =>
+          row
+            .map(cell => {
+              const colorize = CELL_COLORIZERS[cell];
+              return colorize ? colorize(cell) : cell;
+            })
+            .join(' ')
+        )
+        .join('\n') + '\n'
+    );
   }
 
   public play(row: number, col: number): boolean | null {
@@ -158,11 +182,17 @@ export class Game {
   private checkWin(): boolean {
     for (let row = 0; row < this.field.length; row++) {
       for (let column = 0; column < this.field[0].length; column++) {
-        if (this.field[row][column] === ' ' && this.spaces[row][column] !== 'X') {
+        if ((this.field[row][column] === ' ' || this.field[row][column] === 'F') && this.spaces[row][column] !== 'X') {
           return false;
         }
       }
     }
     return true;
+  }
+
+  public mark(row: number, col: number) {
+    if (this.field[row][col] === ' ') {
+      this.field[row][col] = 'F';
+    }
   }
 }
