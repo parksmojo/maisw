@@ -121,6 +121,7 @@ export class Game {
     }
 
     if (this.spaces[row][col] === 'X') {
+      this.field[row][col] = 'X';
       return false;
     }
 
