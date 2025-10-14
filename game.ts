@@ -17,9 +17,9 @@ export class Game {
   public board: Space[][];
 
   constructor({ size, bombCount: bombs }: GameOptions = {}) {
-    const rows = typeof size === 'number' ? size : (size?.rows ?? 14);
-    const columns = typeof size === 'number' ? size : (size?.columns ?? 18);
-    const bombCount = bombs ?? Math.floor(rows * columns * 0.16);
+    const rows = Math.max(typeof size === 'number' ? size : (size?.rows ?? 14), 3);
+    const columns = Math.max(typeof size === 'number' ? size : (size?.columns ?? 18), 3);
+    const bombCount = Math.max(bombs ?? Math.floor(rows * columns * 0.16), 1);
 
     this.board = Array.from({ length: rows }, () => Array(columns).fill(' '));
     this.spaces = this.generateBoard({ rows, columns, bombCount });
@@ -80,9 +80,9 @@ export class Game {
     return str;
   }
 
-  public play(row: number, col: number) {
+  public play(row: number, col: number): boolean | null {
     if (this.spaces[row][col] === 'X') {
-      throw 'you lose';
+      return false;
     }
 
     const neighborOffsets = [-1, 0, 1];
@@ -111,5 +111,18 @@ export class Game {
         }
       }
     }
+
+    return this.checkWin() || null;
+  }
+
+  private checkWin(): boolean {
+    for (let row = 0; row < this.board.length; row++) {
+      for (let column = 0; column < this.board[0].length; column++) {
+        if (this.board[row][column] === ' ' && this.spaces[row][column] !== 'X') {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }
