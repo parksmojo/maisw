@@ -12,14 +12,14 @@ type BoardOptions = {
 type SpaceValue = 'X' | '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
 type Space = SpaceValue | ' ' | 'F';
 
-export class Board {
+export class Game {
   private spaces: SpaceValue[][];
   public board: Space[][];
 
   constructor({ size, bombCount: bombs }: GameOptions = {}) {
     const rows = typeof size === 'number' ? size : (size?.rows ?? 14);
     const columns = typeof size === 'number' ? size : (size?.columns ?? 18);
-    const bombCount = bombs ?? 40;
+    const bombCount = bombs ?? Math.floor(rows * columns * 0.16);
 
     this.board = Array.from({ length: rows }, () => Array(columns).fill(' '));
     this.spaces = this.generateBoard({ rows, columns, bombCount });
@@ -88,7 +88,6 @@ export class Board {
     const neighborOffsets = [-1, 0, 1];
     const q: [number, number][] = [[row, col]];
     while (q.length) {
-      console.log(this.boardString);
       const [row, col] = q.shift()!;
       const val = this.spaces[row][col];
 

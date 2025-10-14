@@ -1,8 +1,8 @@
-import { Board } from './board.ts';
+import { Game } from './game.ts';
 
-const board = new Board();
-console.log(board.boardString);
+const game = new Game();
+console.log(game.boardString);
 console.log('-----');
-board.play(4, 4);
-console.log(board.boardString);
+game.play(4, 4);
+console.log(game.boardString);
 console.log('-----');
